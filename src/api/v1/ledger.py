@@ -1,12 +1,18 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.dependencies import get_current_user
 from src.config.database import get_db_session
 from src.domain.models import User
-from src.schemas.ledger_schemas import DepositCreate, TransferCreate
+from src.schemas.ledger_schemas import (
+    DepositCreate,
+    LedgerEntryResponse,
+    TransferCreate,
+)
+from src.selectors.ledger_selectors import get_wallet_transactions
+from src.selectors.wallet_selectors import get_wallet_by_id
 from src.services.ledger_service import mock_deposit_funds, transfer_funds
 
 router = APIRouter(prefix="/wallets", tags=["Ledger"])
@@ -57,3 +63,26 @@ async def mock_deposit(
         "amount_deposited": deposit_data.amount,
         "message": "Deposit successful",
     }
+
+
+@router.get(
+    "/{wallet_id}/transactions",
+    response_model=list[LedgerEntryResponse],
+    status_code=status.HTTP_200_OK,
+    summary="View wallet transaction history",
+)
+async def get_transaction_history(
+    wallet_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+):
+    wallet = await get_wallet_by_id(session, wallet_id)
+
+    if not wallet or wallet.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Wallet not found or unauthorized access",
+        )
+
+    entries = await get_wallet_transactions(session, wallet_id)
+    return entries
