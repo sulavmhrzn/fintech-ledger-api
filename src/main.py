@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from src.api.v1 import auth, users
+from src.api.v1 import auth, ledger, users, wallets
 
 app = FastAPI(
     title="Fintech Ledger & Virtual Wallet API",
@@ -10,6 +10,8 @@ app = FastAPI(
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
+app.include_router(wallets.router, prefix="/api/v1")
+app.include_router(ledger.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["System"])
