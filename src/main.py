@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from src.api.exception_handlers import register_exception_handler
 from src.api.middleware import StructuredLoggingMiddleware
 from src.api.v1 import auth, ledger, users, wallets
 from src.config.logger import setup_logging
@@ -13,6 +14,8 @@ app = FastAPI(
 )
 
 app.add_middleware(StructuredLoggingMiddleware)
+
+register_exception_handler(app)
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
