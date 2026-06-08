@@ -3,6 +3,7 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config.logger import logger
 from src.config.security import verify_hash
 from src.domain.enums import TransactionStatus
 from src.domain.models import LedgerEntry, Transaction, User
@@ -20,6 +21,13 @@ async def transfer_funds(
     from_wallet_id: uuid.UUID,
     transfer_data: TransferCreate,
 ) -> Transaction:
+    log = logger.bind(idempotency_key=transfer_data.idempotency_key)
+
+    log.info(
+        "transfer_initiated",
+        sender_id=str(sender.id),
+        amount=float(transfer_data.amount),
+    )
     existing_txn = await get_transaction_by_idempotency_key(
         session, key=transfer_data.idempotency_key
     )
@@ -31,8 +39,17 @@ async def transfer_funds(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid transaction PIN."
         )
 
-    sender_wallet = await get_wallet_by_id(session, from_wallet_id)
-    receiver_wallet = await get_wallet_by_id(session, transfer_data.to_wallet_id)
+    first_id, second_id = sorted([from_wallet_id, transfer_data.to_wallet_id])
+
+    first_wallet = await get_wallet_by_id(session, first_id, lock=True)
+    second_wallet = await get_wallet_by_id(session, second_id, lock=True)
+
+    sender_wallet = first_wallet if first_wallet.id == from_wallet_id else second_wallet
+    receiver_wallet = (
+        second_wallet
+        if second_wallet.id == transfer_data.to_wallet_id
+        else first_wallet
+    )
 
     if sender_wallet and receiver_wallet and sender_wallet.id == receiver_wallet.id:
         raise HTTPException(
@@ -62,6 +79,11 @@ async def transfer_funds(
 
     current_balance = await get_wallet_balance(session, wallet_id=sender_wallet.id)
     if current_balance < transfer_data.amount:
+        log.warn(
+            "transfer_failed",
+            reason="insufficient_funds",
+            current_balance=float(current_balance),
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient funds"
         )
@@ -89,6 +111,7 @@ async def transfer_funds(
         session.add_all([sender_entry, receiver_entry])
         await session.commit()
         await session.refresh(new_transaction)
+        log.info("transfer_successful", transaction_id=str(new_transaction.id))
         return new_transaction
     except Exception:
         await session.rollback()

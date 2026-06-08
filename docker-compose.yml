@@ -1,4 +1,14 @@
 services:
+  migrator:
+    build: .
+    container_name: fintech_migrator
+    command: alembic upgrade head
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
     build: .
     container_name: fintech_api
@@ -11,6 +21,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     volumes:
       - .:/app
     command: fastapi dev src/main.py --host 0.0.0.0 --port 8000

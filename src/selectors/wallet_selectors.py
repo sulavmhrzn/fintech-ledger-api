@@ -22,8 +22,10 @@ async def get_user_wallets(session: AsyncSession, user_id: uuid.UUID) -> list[Wa
 
 
 async def get_wallet_by_id(
-    session: AsyncSession, wallet_id: uuid.UUID
+    session: AsyncSession, wallet_id: uuid.UUID, lock: bool = False
 ) -> Wallet | None:
     query = select(Wallet).where(Wallet.id == wallet_id)
+    if lock:
+        query = query.with_for_update()
     result = await session.execute(query)
     return result.scalar_one_or_none()
