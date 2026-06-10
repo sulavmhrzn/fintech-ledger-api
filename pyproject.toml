@@ -15,6 +15,7 @@ dependencies = [
     "redis>=8.0.0",
     "sqlalchemy>=2.0.50",
     "structlog>=26.1.0",
+    "typer[all]>=0.26.7",
 ]
 
 [tool.fastapi]
