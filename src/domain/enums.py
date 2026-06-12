@@ -29,6 +29,9 @@ class Permission(str, Enum):
 
     LEDGER_READ = "ledger:read"
 
+    KYC_REVIEW = "kyc:review"
+    KYC_READ = "kyc:read"
+
 
 ROLE_PERMISSIONS = {
     Role.ADMIN: {
@@ -38,12 +41,28 @@ ROLE_PERMISSIONS = {
         Permission.WALLETS_FREEZE,
         Permission.WALLETS_READ,
         Permission.LEDGER_READ,
+        Permission.KYC_REVIEW,
+        Permission.KYC_READ,
     },
     Role.COMPLIANCE: {
         Permission.USERS_READ,
         Permission.WALLETS_READ,
         Permission.WALLETS_FREEZE,
         Permission.LEDGER_READ,
+        Permission.KYC_REVIEW,
+        Permission.KYC_READ,
     },
     Role.USER: set(),
 }
+
+
+class AccountTier(str, Enum):
+    TIER_1 = "TIER_1"  # Unverified (Daily limit: 1000)
+    TIER_2 = "TIER_2"  # ID verified (Daily limit: 50,000)
+    TIER_3 = "TIER_3"  # Address verified (Daily limit: 1,000,000)
+
+
+class KYCStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"

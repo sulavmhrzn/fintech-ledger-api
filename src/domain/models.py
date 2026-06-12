@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from src.domain.enums import Currency, Role, TransactionStatus
+from src.domain.enums import AccountTier, Currency, KYCStatus, Role, TransactionStatus
 
 
 class Base(DeclarativeBase):
@@ -24,15 +24,25 @@ class User(Base):
         String(255), unique=True, index=True, nullable=True
     )
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    transaction_pin_hash: Mapped[str | None] = mapped_column(
-        String(255), nullable=False
-    )
+    transaction_pin_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[Role] = mapped_column(
         PgEnum(Role, name="role_enum", create_type=False),
         default=Role.USER,
         nullable=False,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    tier: Mapped[AccountTier] = mapped_column(
+        PgEnum(AccountTier, name="account_tier_enum"),
+        default=AccountTier.TIER_1,
+        nullable=False,
+        server_default=AccountTier.TIER_1,
+    )
+    kyc_documents = relationship(
+        "KYCDocument",
+        backref="user",
+        cascade="all, delete-orphan",
+        foreign_keys="[KYCDocument.users_id]",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -108,3 +118,30 @@ class LedgerEntry(Base):
     )
 
     wallet = relationship("Wallet", backref="ledger_entries")
+
+
+class KYCDocument(Base):
+    __tablename__ = "kyc_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    users_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    document_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    file_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[KYCStatus] = mapped_column(
+        PgEnum(KYCStatus, name="kyc_status_enum", create_type=False),
+        default=KYCStatus.PENDING,
+        nullable=False,
+    )
+    rejection_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )

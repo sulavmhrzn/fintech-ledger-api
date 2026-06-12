@@ -32,7 +32,7 @@ async def create_wallet(
 
 
 async def toggle_wallet_freeze(session: AsyncSession, wallet_id: uuid.UUID) -> Wallet:
-    wallet = get_wallet_by_id(session, wallet_id)
+    wallet = await get_wallet_by_id(session, wallet_id)
 
     if not wallet:
         raise HTTPException(

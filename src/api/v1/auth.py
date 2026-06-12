@@ -1,6 +1,6 @@
-import redis.asyncio as Redis
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
+from redis.asyncio.client import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config.database import get_db_session

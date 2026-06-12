@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 from src.api.exception_handlers import register_exception_handler
 from src.api.middleware import StructuredLoggingMiddleware
-from src.api.v1 import admin, auth, ledger, users, wallets
+from src.api.v1 import admin, auth, kyc, ledger, users, wallets
 from src.config.logger import setup_logging
 
 setup_logging(is_production=False)
@@ -22,6 +22,7 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(wallets.router, prefix="/api/v1")
 app.include_router(ledger.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(kyc.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["System"])
