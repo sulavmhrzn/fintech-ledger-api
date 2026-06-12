@@ -12,6 +12,7 @@ class KYCDocumentResponse(BaseModel):
     document_type: str
     status: KYCStatus
     created_at: datetime
+    file_url: str
 
     model_config = ConfigDict(from_attributes=True)
 

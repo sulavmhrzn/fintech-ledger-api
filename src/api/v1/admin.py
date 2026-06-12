@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.dependencies import RequirePermission, RequireRole
+from src.api.dependencies import RequirePermission
 from src.config.database import get_db_session
 from src.domain.enums import KYCStatus, Permission
 from src.domain.models import User
@@ -12,6 +12,7 @@ from src.schemas.user_schemas import UserResponse
 from src.schemas.wallet_schemas import WalletResponse
 from src.selectors.kyc_selectors import get_kyc_documents
 from src.services.kyc_service import review_kyc_document
+from src.services.storage_service import create_presigned_url
 from src.services.user_service import get_all_users, toggle_user_active_status
 from src.services.wallet_service import toggle_wallet_freeze
 
@@ -90,4 +91,7 @@ async def list_kyc_endpoint(
     current_user: User = Depends(RequirePermission(Permission.KYC_READ)),
     session: AsyncSession = Depends(get_db_session),
 ):
-    return await get_kyc_documents(session=session, kyc_status=status)
+    documents = await get_kyc_documents(session=session, kyc_status=status)
+    for doc in documents:
+        doc.file_url = create_presigned_url(doc.file_url)
+    return documents

@@ -34,3 +34,22 @@ def upload_file_to_s3(file_obj, destination_path: str, content_type: str) -> str
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload document to storage server.",
         )
+
+
+def create_presigned_url(file_url: str, expiration_seconds: int = 900) -> str:
+    if not file_url:
+        return ""
+
+    object_key = file_url.split(f"/{BUCKET_NAME}/")[-1]
+
+    try:
+        presigned_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": BUCKET_NAME, "Key": object_key},
+            ExpiresIn=expiration_seconds,
+        )
+
+        return presigned_url.replace("http://minio:9000", "http://localhost:9000")
+    except ClientError as e:
+        logger.error("create_presigned_url_failed", error=str(e))
+        return file_url
