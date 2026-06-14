@@ -8,6 +8,7 @@ from src.config.database import get_db_session
 from src.domain.enums import KYCStatus, Permission
 from src.domain.models import User
 from src.schemas.kyc_schemas import KYCDocumentResponse, KYCReviewRequest
+from src.schemas.pagination_schema import CursorPage
 from src.schemas.user_schemas import UserResponse
 from src.schemas.wallet_schemas import WalletResponse
 from src.selectors.kyc_selectors import get_kyc_documents
@@ -82,16 +83,26 @@ async def review_kyc_endpoint(
 
 @router.get(
     "/kyc",
-    response_model=list[KYCDocumentResponse],
+    response_model=CursorPage[KYCDocumentResponse],
     status_code=status.HTTP_200_OK,
     summary="List KYC Documents",
 )
 async def list_kyc_endpoint(
     status: KYCStatus = Query(KYCStatus.PENDING),
+    limit: int = Query(10, ge=1, le=100),
+    cursor: str | None = Query(None),
     current_user: User = Depends(RequirePermission(Permission.KYC_READ)),
     session: AsyncSession = Depends(get_db_session),
 ):
-    documents = await get_kyc_documents(session=session, kyc_status=status)
+    documents, next_cursor = await get_kyc_documents(
+        session=session,
+        kyc_status=status,
+        limit=limit,
+        cursor=cursor,
+    )
     for doc in documents:
         doc.file_url = create_presigned_url(doc.file_url)
-    return documents
+    return CursorPage(
+        items=documents,
+        next_cursor=next_cursor,
+    )
