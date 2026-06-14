@@ -1,18 +1,26 @@
 import uuid
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config.logger import logger
 from src.config.security import verify_hash
-from src.domain.enums import TransactionStatus
+from src.domain.enums import AccountTier, TransactionStatus
 from src.domain.models import LedgerEntry, Transaction, User
 from src.schemas.ledger_schemas import DepositCreate, TransferCreate
 from src.selectors.ledger_selectors import (
+    get_daily_transfer_volume,
     get_transaction_by_idempotency_key,
     get_wallet_balance,
 )
 from src.selectors.wallet_selectors import get_wallet_by_id
+
+TIER_LIMITS = {
+    AccountTier.TIER_1: Decimal("1000.00"),
+    AccountTier.TIER_2: Decimal("50000.00"),
+    AccountTier.TIER_3: Decimal("1000000.00"),
+}
 
 
 async def transfer_funds(
@@ -39,10 +47,28 @@ async def transfer_funds(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid transaction PIN."
         )
 
+    daily_limit = TIER_LIMITS.get(sender.tier, Decimal("0.00"))
+
+    current_volume = await get_daily_transfer_volume(session, sender.id)
+
+    if current_volume + transfer_data.amount > daily_limit:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Transfer exceeds your daily {sender.tier.value} limit of {daily_limit}. "
+            f"You have already sent {current_volume} in the last 24 hours. "
+            "Please upgrade your KYC tier to increase your limit.",
+        )
+
     first_id, second_id = sorted([from_wallet_id, transfer_data.to_wallet_id])
 
     first_wallet = await get_wallet_by_id(session, first_id, lock=True)
     second_wallet = await get_wallet_by_id(session, second_id, lock=True)
+
+    if not first_wallet or not second_wallet:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Wallet not found",
+        )
 
     sender_wallet = first_wallet if first_wallet.id == from_wallet_id else second_wallet
     receiver_wallet = (
