@@ -7,7 +7,14 @@ from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from src.domain.enums import AccountTier, Currency, KYCStatus, Role, TransactionStatus
+from src.domain.enums import (
+    AccountTier,
+    Currency,
+    KYCStatus,
+    OTPPurpose,
+    Role,
+    TransactionStatus,
+)
 
 
 class Base(DeclarativeBase):
@@ -43,11 +50,15 @@ class User(Base):
         cascade="all, delete-orphan",
         foreign_keys="[KYCDocument.users_id]",
     )
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    otp_tokens: Mapped[list["OTPToken"]] = relationship(back_populates="user")
 
 
 class Wallet(Base):
@@ -145,3 +156,28 @@ class KYCDocument(Base):
     reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+
+
+class OTPToken(Base):
+    __tablename__ = "otp_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    code: Mapped[str] = mapped_column(String(6), nullable=False)
+    purpose: Mapped[OTPPurpose] = mapped_column(
+        PgEnum(OTPPurpose, name="otp_token_purpose"), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    user: Mapped["User"] = relationship(back_populates="otp_tokens")

@@ -24,6 +24,8 @@ services:
         condition: service_healthy
       migrator:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_healthy
     volumes:
       - .:/app
     command: fastapi dev src/main.py --host 0.0.0.0 --port 8000
@@ -90,6 +92,41 @@ services:
       echo 'Setup complete.';
       exit 0;
       "
+  mailpit:
+    image: axllent/mailpit
+    container_name: fintech_mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    restart: always
+  celery_worker:
+    build: .
+    container_name: fintech_celery_worker
+    command: celery -A src.workers.celery_app worker --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+
+  celery_beat:
+    build: .
+    container_name: fintech_celery_beat
+    command: celery -A src.workers.celery_app beat --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+            
 volumes:
   postgres_data:
   minio_data:
