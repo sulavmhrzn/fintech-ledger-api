@@ -33,7 +33,7 @@ async def get_current_user(
                 detail="Refresh tokens cannot be used to access API endpoints",
             )
 
-        user_id_str: str = payload.get("sub")
+        user_id_str: str | None = payload.get("sub")
         if user_id_str is None:
             raise credentials_exception
 

@@ -15,9 +15,12 @@ from src.config.security import (
     verify_hash,
 )
 from src.config.settings import settings
+from src.domain.enums import OTPPurpose
 from src.domain.models import User
 from src.schemas.user_schemas import TokenResponse, UserCreate
 from src.selectors.user_selectors import get_user_by_email, get_user_by_id
+from src.services.otp_service import generate_otp
+from src.workers.tasks import send_verification_email
 
 
 async def register_user(session: AsyncSession, user_data: UserCreate) -> User:
@@ -36,11 +39,16 @@ async def register_user(session: AsyncSession, user_data: UserCreate) -> User:
         email=user_data.email,
         hashed_password=hashed_pw,
         transaction_pin_hash=hashed_pin,
+        email_verified=False,
     )
 
     session.add(new_user)
     await session.commit()
     await session.refresh(new_user)
+    otp = await generate_otp(
+        session, user_id=new_user.id, purpose=OTPPurpose.EMAIL_VERIFICATION
+    )
+    send_verification_email.delay(email=new_user.email, code=otp.code)
 
     return new_user
 

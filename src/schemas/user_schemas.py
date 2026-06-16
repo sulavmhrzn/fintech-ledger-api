@@ -26,6 +26,7 @@ class UserResponse(BaseModel):
     role: Role
     is_active: bool
     created_at: datetime
+    email_verified: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -38,3 +39,12 @@ class TokenResponse(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=6, description="6-digit OTP code")
+
+
+class ResendVerificationEmailRequest(BaseModel):
+    email: EmailStr
